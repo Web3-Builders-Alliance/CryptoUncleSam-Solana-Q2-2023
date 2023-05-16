@@ -13,15 +13,19 @@
     "vault_deposit": "ts-node ./vault_deposit.ts",
     "vault_withdraw": "ts-node ./vault_withdraw.ts",
     "vault_deposit_spl": "ts-node ./vault_spl_deposit.ts",
-    "vault_withdraw_spl": "ts-node ./vault_withdraw_spl.ts"
+    "vault_withdraw_spl": "ts-node ./vault_withdraw_spl.ts",
+    "upload_nft": "ts-node ./nft_image.ts",
+    "metadata_nft": "ts-node ./nft_metadata.ts",
+    "mint_nft": "ts-node ./nft_mint.ts"
   },
   "dependencies": {
+    "@metaplex-foundation/js": "^0.19.3",
+    "@metaplex-foundation/mpl-token-metadata": "^2.10.0",
+    "@project-serum/anchor": "^0.26.0",
     "@solana/spl-token": "^0.3.7",
     "@solana/web3.js": "^1.75.0",
     "@types/node": "^18.16.2",
-    "typescript": "^5.0.4",
-    "@metaplex-foundation/mpl-token-metadata": "^2.10.0",
-    "@project-serum/anchor": "^0.26.0"
+    "typescript": "^5.0.4"
   },
   "devDependencies": {
     "ts-node": "^10.9.1"
