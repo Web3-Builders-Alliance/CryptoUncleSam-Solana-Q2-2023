@@ -23,7 +23,7 @@ import {
         keypair, // fee payer
         mintAccountPublicKey, // mint
         new PublicKey("tiosTcRdt9TW7baDB3BLL3LY16w5pP5XsTbeQNZJKjD") // owner,
-      );
+    );
     
     console.log(`ATA: ${ata.address.toBase58()}`);    
   
