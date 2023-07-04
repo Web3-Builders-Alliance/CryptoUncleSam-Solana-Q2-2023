@@ -19,6 +19,7 @@ pub struct Withdraw <'info> {
         seeds = [b"auth", deposit_account_state.key().as_ref()], 
         bump = deposit_account_state.auth_bump
     )]
+    /// CHECK
     pub deposit_account_auth : UncheckedAccount<'info>,
     #[account(
         seeds = [b"vault", deposit_account_auth.key().as_ref()], 
@@ -40,6 +41,7 @@ pub struct Withdraw <'info> {
     )]
     pub deposit: SystemAccount <'info>,
     #[account(mut)]
+    /// CHECK
     pub admin: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,

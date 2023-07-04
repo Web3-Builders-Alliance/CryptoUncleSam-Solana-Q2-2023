@@ -19,6 +19,7 @@ pub struct Deposit <'info> {
         seeds = [b"auth", deposit_account_state.key().as_ref()], 
         bump = deposit_account_state.auth_bump
     )]
+    /// CHECK
     pub deposit_account_auth : UncheckedAccount<'info>,
     #[account(
         seeds = [b"vault", deposit_account_auth.key().as_ref()], 

@@ -1,34 +1,19 @@
-use anchor_lang::{prelude::*, solana_program::instruction::Instruction, system_program};
+use anchor_lang::{prelude::*, system_program};
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-pub mod nft_lending_v2 {
-    use anchor_lang::declare_id;
-    declare_id!("A66HabVL3DzNzeJgcHYtRRNW1ZRMKwBfrdSR4kLsZ9DJ");    
-}
-
-pub mod admin_pubkey {
-    use anchor_lang::declare_id;
-    declare_id!("tiosTcRdt9TW7baDB3BLL3LY16w5pP5XsTbeQNZJKjD");    
-}
-
-pub mod frakt_admin_pubkey {
-    use anchor_lang::declare_id;
-    declare_id!("9aTtUqAnuSMndCpjcPosRNf3fCkrTQAV8C8GERf3tZi3");    
-}
-
 mod structs;
 mod contexts;
-
+use contexts::*;
+mod cpis;
+use cpis::*;
 
 #[program]
 pub mod powerpool {
     use super::*;
     //initialize
-    pub fn initialize(ctx: Context<contexts::Initialize>) -> Result<()> {
-
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         assert!(ctx.accounts.admin.key() == admin_pubkey::id(), "You are not the admin");
-
         ctx.accounts.deposit_account_state.auth_bump = *ctx.bumps.get("deposit_account_auth").unwrap();
         ctx.accounts.deposit_account_state.vault_bump = *ctx.bumps.get("vault").unwrap();
         ctx.accounts.deposit_account_state.admin = *ctx.accounts.admin.key;
@@ -42,31 +27,7 @@ pub mod powerpool {
         Ok(())
     }
 
-    pub fn deposit(ctx: Context<contexts::Deposit>, amount: u64) -> Result<()> {
-        
-        fn deposit_ix(
-            amount: u64, from: Pubkey, to: Pubkey, liquidity_pool: Pubkey, 
-            deposit: Pubkey, system_p: Pubkey, rent: Pubkey
-        ) -> Instruction {
-            // Discriminator
-            let mut data: Vec<u8> = vec!(0xf5, 0x63, 0x3b, 0x19, 0x97, 0x47, 0xe9, 0xf9);
-            data.extend_from_slice(amount.to_le_bytes().as_ref());
-        
-            let accounts: Vec<AccountMeta> = vec![
-                AccountMeta::new(liquidity_pool, false),
-                AccountMeta::new(to, false),
-                AccountMeta::new(deposit, false),
-                AccountMeta::new(from, true),
-                AccountMeta::new_readonly(system_p, false),
-                AccountMeta::new_readonly(rent, false),
-            ];
-        
-            Instruction {
-                program_id: nft_lending_v2::id(),
-                accounts,
-                data
-            }
-        }
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
 
         let cpi = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
@@ -90,8 +51,9 @@ pub mod powerpool {
 
         let bump = *ctx.bumps.get("deposit_account_auth").unwrap();
         let seeds = vec![bump];
+        let deposit_account_state_key = ctx.accounts.deposit_account_state.key();
         let seeds = vec![
-            b"auth".as_ref(), ctx.accounts.deposit_account_state.key().as_ref(), seeds.as_slice()
+            b"auth".as_ref(), deposit_account_state_key.as_ref(), seeds.as_slice()
         ];
         let seeds = vec![seeds.as_slice()];
         let seeds = seeds.as_slice();
@@ -104,36 +66,12 @@ pub mod powerpool {
                 ctx.accounts.deposit_account_auth.to_account_info().clone(),
             ],
             seeds,
-        );
+        )?;
 
         Ok(())
 
     }
-    pub fn withdraw(ctx: Context<contexts::Withdraw>, amount: u64) -> Result<()> {
-
-        fn withdraw_ix(bump: u8, amount: u64, from: Pubkey, to: Pubkey, 
-            liquidity_pool: Pubkey, deposit: Pubkey, system_p: Pubkey, rent: Pubkey
-        ) -> Instruction {
-            // Discriminator
-            let mut data: Vec<u8> = vec!(0x85, 0x8c, 0xea, 0x9c, 0x92, 0x5d, 0x28, 0xf4, bump);
-            data.extend_from_slice(amount.to_le_bytes().as_ref());
-        
-            let accounts: Vec<AccountMeta> = vec![
-                AccountMeta::new(liquidity_pool, false),
-                AccountMeta::new(deposit, false),
-                AccountMeta::new(to, false),
-                AccountMeta::new(from, true),
-                AccountMeta::new_readonly(frakt_admin_pubkey::id(), false),
-                AccountMeta::new_readonly(system_p, false),
-                AccountMeta::new_readonly(rent, false),
-            ];
-        
-            Instruction {
-                program_id: nft_lending_v2::id(),
-                accounts,
-                data
-            }
-        }
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
 
         let mut withdraw_amount = amount;
 
@@ -148,8 +86,9 @@ pub mod powerpool {
         
         let bump = *ctx.bumps.get("deposit_account_auth").unwrap();
         let seeds = vec![bump];
+        let deposit_account_state_key = ctx.accounts.deposit_account_state.key();
         let seeds = vec![
-            b"auth".as_ref(), ctx.accounts.deposit_account_state.key().as_ref(), seeds.as_slice()
+            b"auth".as_ref(), deposit_account_state_key.as_ref(), seeds.as_slice()
         ];
         let seeds = vec![seeds.as_slice()];
         let seeds = seeds.as_slice();
@@ -162,7 +101,7 @@ pub mod powerpool {
                 ctx.accounts.deposit_account_auth.to_account_info().clone(),
             ],
             seeds,
-        );
+        )?;
         if ctx.accounts.user_state.last_deposit_slot+1512000>Clock::get()?.slot{
             //Penalize 2%
             withdraw_amount = withdraw_amount*98/100;
@@ -185,7 +124,7 @@ pub mod powerpool {
             ctx.accounts.system_program.to_account_info(),
             anchor_lang::system_program::Transfer{
                 from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.admin
+                to: ctx.accounts.admin.to_account_info()
             },
         );
 
@@ -194,37 +133,11 @@ pub mod powerpool {
         Ok(())
 
     }
-    pub fn run_lottery(ctx: Context<contexts::RunLottery>) -> Result<()> {
-
-        fn harvest_ix(bump: u8, from: Pubkey, to: Pubkey, 
-            liquidity_pool: Pubkey, deposit: Pubkey, system_p: Pubkey, rent: Pubkey
-        ) -> Instruction {
-            // Discriminator
-            let data: Vec<u8> = vec!(0xd4, 0xd6, 0x21, 0xd3, 0x28, 0x56, 0x09, 0x76, bump);
-
-            let accounts: Vec<AccountMeta> = vec![
-                AccountMeta::new(liquidity_pool, false),
-                AccountMeta::new(from, true),
-                AccountMeta::new(deposit, false),
-                AccountMeta::new(to, false),
-                AccountMeta::new_readonly(frakt_admin_pubkey::id(), false),
-                AccountMeta::new_readonly(system_p, false),
-                AccountMeta::new_readonly(rent, false),
-            ];
-
-            Instruction {
-                program_id: nft_lending_v2::id(),
-                accounts,
-                data
-            }
-        }
-
+    pub fn run_lottery(ctx: Context<RunLottery>) -> Result<()> {
+        // harvest_ix(bump, from, to, liquidity_pool, deposit, system_p, rent)
         Ok(())
     }
     
    
     
 }
-
-#[derive(Accounts)]
-pub struct Initialize {}
